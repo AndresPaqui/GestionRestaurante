@@ -11,10 +11,10 @@ Este proyecto nace como una solución tecnológica para la digitalización de em
 ## 👥 Equipo y Roles
 El desarrollo se gestiona bajo una estructura de roles definida para garantizar la calidad y el cumplimiento de los requerimientos:
 
-* **Andrés Paqui (Líder de Proyecto)**: Coordinación del equipo, planificación y seguimiento de actividades de desarrollo.
-* **Joel Tapia (Análisis y Diseño)**: Identificación de requerimientos, modelado UML y diseño de base de datos.
-* **José Méndez (Desarrollo)**: Implementación de módulos principales y lógica del sistema.
-* **Helen Benalcazar (Pruebas/QA)**: Validación funcional del sistema y detección de errores.
+* **Andrés Paqui (Líder de Proyecto & Arquitecto)**: Responsable de la coordinación general y planificación. Definición de la arquitectura base del sistema mediante la creación de los Modelos de Datos iniciales y el diseño del Diagrama de Clases UML para asegurar la coherencia técnica del proyecto.
+* **Joel Tapia (Gestión de Datos)**: Responsable del paquete data. Encargado del diseño y gestión de la base de datos SQLite, asegurando la persistencia de la información y la implementación del patrón DAO.
+* **José Méndez (Interfaz de Usuario)**: Responsable del paquete ui. Encargado del diseño visual y la experiencia de usuario utilizando Java Swing y el plugin WindowBuilder, integrando FlatLaf para una estética moderna.
+* **Helen Benalcazar (Lógica de Negocio & QA)**: Responsable del paquete logic. Encargada de implementar las reglas de negocio (cálculos, validaciones de stock) y realizar las pruebas funcionales para garantizar la calidad del software.
 
 ## 🛠️ Tecnologías y Metodología
 * **Lenguaje**: Java (Programación Orientada a Objetos).
