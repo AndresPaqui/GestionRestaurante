@@ -19,8 +19,8 @@ El desarrollo se gestiona bajo una estructura de roles definida para garantizar 
 ## 🛠️ Tecnologías y Metodología
 * **Lenguaje**: Java (Programación Orientada a Objetos).
 * **Interfaz**: Java Swing con navegación dinámica por paneles.
-* **Gestión**: Control de versiones con Git/GitHub y flujo de trabajo colaborativo[cite: 6].
-* **Diseño**: Modelado mediante Diagramas de Clases UML y Entidad-Relación[cite: 6].
+* **Gestión**: Control de versiones con Git/GitHub y flujo de trabajo colaborativo.
+* **Diseño**: Modelado mediante Diagramas de Clases UML y Entidad-Relación.
 
 ---
 *Proyecto académico desarrollado para la asignatura de Programación II - Ingeniería de Software (UDLA)*
