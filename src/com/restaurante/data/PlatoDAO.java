@@ -18,7 +18,7 @@ public class PlatoDAO {
             ps.executeUpdate();
 
             ResultSet keys = ps.getGeneratedKeys();
-            if (keys.next()) p.setId(keys.getInt(1));  // ← setId()
+            if (keys.next()) p.setId(keys.getInt(1));  
             return true;
 
         } catch (SQLException e) {
@@ -32,7 +32,7 @@ public class PlatoDAO {
         try (PreparedStatement ps = Conexion.conectar().prepareStatement(sql)) {
             ps.setString(1, p.getNombre());
             ps.setDouble(2, p.getPrecioVenta());
-            ps.setInt(3, p.getId());                   // ← getId()
+            ps.setInt(3, p.getId());                
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             System.err.println("[PlatoDAO] actualizar: " + e.getMessage());
