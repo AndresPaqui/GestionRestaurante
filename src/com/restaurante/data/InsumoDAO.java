@@ -21,7 +21,7 @@ public class InsumoDAO {
             ps.setDouble(3, i.getStockActual());
             ps.setDouble(4, i.getStockMinimo());
             ps.setDouble(5, i.getCostoUnitario());
-            ps.setString(6, i.getUnidadMedida());       // ← getUnidadMedida()
+            ps.setString(6, i.getUnidadMedida());      
             ps.executeUpdate();
 
             ResultSet keys = ps.getGeneratedKeys();
@@ -47,7 +47,7 @@ public class InsumoDAO {
             ps.setDouble(3, i.getStockActual());
             ps.setDouble(4, i.getStockMinimo());
             ps.setDouble(5, i.getCostoUnitario());
-            ps.setString(6, i.getUnidadMedida());       // ← getUnidadMedida()
+            ps.setString(6, i.getUnidadMedida());      
             ps.setInt(7, i.getId());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -99,7 +99,7 @@ public class InsumoDAO {
                 rs.getDouble("stock_actual"),
                 rs.getDouble("stock_minimo"),
                 rs.getDouble("costo_unitario"),
-                rs.getString("unidad_medida")           // ← columna renombrada
+                rs.getString("unidad_medida")         
         );
     }
 }
