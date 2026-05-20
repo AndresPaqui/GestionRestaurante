@@ -22,7 +22,7 @@ public class VentasDAO {
         try (PreparedStatement ps = Conexion.conectar().prepareStatement(
                 sql, Statement.RETURN_GENERATED_KEYS)) {
 
-            // Usa LocalDateTime igual que tu modelo Venta
+      
             LocalDateTime fecha = v.getFecha() != null ? v.getFecha() : LocalDateTime.now();
             ps.setString(1, fecha.format(FMT));
             ps.setDouble(2, v.getTotalVenta());
