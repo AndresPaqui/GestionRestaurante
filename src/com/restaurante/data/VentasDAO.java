@@ -46,9 +46,9 @@ public class VentasDAO {
                 """;
         try (PreparedStatement ps = Conexion.conectar().prepareStatement(sql)) {
             ps.setInt(1, idVenta);
-            ps.setInt(2, item.getPlato().getId());     // ← getId() de Plato
+            ps.setInt(2, item.getPlato().getId());    
             ps.setInt(3, item.getCantidad());
-            ps.setDouble(4, item.getSubtotal());       // ← no hay precioUnitario en ItemVenta
+            ps.setDouble(4, item.getSubtotal());    
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             System.err.println("[VentasDAO] registrarDetalleVenta: " + e.getMessage());
@@ -67,7 +67,7 @@ public class VentasDAO {
                 lista.add(new Venta(
                         rs.getInt("id"),
                         fecha,
-                        new ArrayList<>(),              // detalles vacíos en el historial
+                        new ArrayList<>(),      
                         rs.getDouble("total_venta"),
                         rs.getString("metodo_pago")
                 ));
