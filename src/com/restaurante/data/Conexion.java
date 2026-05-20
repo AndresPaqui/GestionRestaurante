@@ -38,7 +38,7 @@ public class Conexion {
         }
     }
 
-    // ── Crea las tablas si no existen ──────────────────────────────────────
+    // ── Crea las tablas si no existen 
 
     private static void crearTablas() {
         String pragma = "PRAGMA foreign_keys = ON;";
