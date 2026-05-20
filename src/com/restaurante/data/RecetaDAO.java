@@ -47,7 +47,7 @@ public class RecetaDAO {
                         rs.getDouble("stock_actual"),
                         rs.getDouble("stock_minimo"),
                         rs.getDouble("costo_unitario"),
-                        rs.getString("unidad_medida")   // ← unidad_medida
+                        rs.getString("unidad_medida")  
                 );
                 mapa.put(insumo, rs.getDouble("cantidad_necesaria"));
             }
