@@ -10,3 +10,7 @@ public class PlatosGUI {
     private JButton buscarPlatoPorIDButton;
     private JPanel LayoutP;
 }
+
+
+
+
