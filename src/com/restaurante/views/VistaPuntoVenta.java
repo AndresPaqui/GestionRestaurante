@@ -89,7 +89,7 @@ public class VistaPuntoVenta extends HorizontalLayout {
 
         // Configurar tabla de ítems del pedido: Cantidad | Item | Subtotal
         gridPedido.setHeight("250px");
-        gridPedido.addColumn(ItemVenta::getCantidad).setHeader("Cant.").setWidth("60px").setFlexGrow(0);
+        gridPedido.addColumn(ItemVenta::getCantidad).setHeader("Cant.").setWidth("80px").setFlexGrow(0);
         gridPedido.addColumn(item -> item.getPlato().getNombre()).setHeader("Plato");
         gridPedido.addColumn(item -> String.format("$%.2f", item.getSubtotal())).setHeader("Subtotal").setWidth("100px").setFlexGrow(0);
 
@@ -99,15 +99,17 @@ public class VistaPuntoVenta extends HorizontalLayout {
             btnEliminar.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_TERTIARY);
             btnEliminar.addClickListener(e -> eliminarDelPedido(item));
             return btnEliminar;
-        })).setHeader("Quitar").setWidth("70px").setFlexGrow(0);
+        })).setHeader("Quitar").setWidth("80px").setFlexGrow(0);
 
-        // Sección de desglose de costos (Subtotal, IVA, Total)
-        VerticalLayout seccionTotales = new VerticalLayout(lblSubtotal, lblIva, lblTotal);
+        VerticalLayout seccionTotales = new VerticalLayout();
         seccionTotales.setPadding(false);
         seccionTotales.setSpacing(false);
         seccionTotales.getStyle().set("font-weight", "bold").set("border-top", "1px solid var(--lumo-contrast-20pct)");
-        lblTotal.getStyle().set("font-size", "var(--lumo-font-size-xl)").set("color", "var(--lumo-primary-text-color)");
 
+        // Agregamos explícitamente los componentes al layout
+        seccionTotales.add(lblSubtotal, lblIva, lblTotal);
+
+        lblTotal.getStyle().set("font-size", "var(--lumo-font-size-xl)").set("color", "var(--lumo-primary-text-color)");
         // Sección de Facturación
         H3 tituloFactura = new H3("Datos de Facturación");
         txtCedula.setWidthFull();
@@ -129,6 +131,9 @@ public class VistaPuntoVenta extends HorizontalLayout {
 
         // Cargar los platos iniciales de la base de datos
         cargarCatalogoPlatos("");
+
+        // NUEVA LÍNEA: Forzar inicialización de las etiquetas en la carga de la página
+        actualizarResumenPedido();
     }
 
     /**
@@ -140,12 +145,12 @@ public class VistaPuntoVenta extends HorizontalLayout {
         List<Plato> platosBD = platoDAO.listarTodos();
 
         // Si la base de datos está vacía, creamos platos ficticios temporales para probar la interfaz
-        if (platosBD.isEmpty()) {
+        /*if (platosBD.isEmpty()) {
             platosBD.add(new Plato(1, "Encebollado Mixto", 5.50, 0, null));
             platosBD.add(new Plato(2, "Seco de Pollo", 4.00, 0, null));
             platosBD.add(new Plato(3, "Locro de Papa", 3.50, 0, null));
             platosBD.add(new Plato(4, "Churrasco Ecuatoriano", 6.50, 0, null));
-        }
+        }*/
 
         // Filtrar por nombre si el usuario escribe en la barra superior
         List<Plato> platosFiltrados = platosBD.stream()
@@ -223,12 +228,15 @@ public class VistaPuntoVenta extends HorizontalLayout {
 
         // CORRECCIÓN: Seteamos el texto formateado usando las variables correspondientes
         lblSubtotal.setText(String.format("Subtotal: $%.2f", subtotalSinIva));
-        lblIva.setText(String.format("IVA (15%): $%.2f", iva));
+        lblIva.setText(String.format("IVA (15%%): $%.2f", iva));
         lblTotal.setText(String.format("TOTAL: $%.2f", total));
     }
 
     /**
      * Empaqueta el objeto Venta y lo manda a guardar a través de VentasDAO
+     */
+    /**
+     * Empaqueta el objeto Venta y lo manda a procesar a través de VentasService
      */
     private void procesarVenta() {
         if (carrito.isEmpty()) {
@@ -238,18 +246,16 @@ public class VistaPuntoVenta extends HorizontalLayout {
 
         double total = carrito.stream().mapToDouble(ItemVenta::getSubtotal).sum() * 1.15;
 
-        // Instanciamos el objeto de negocio unificado con los datos de facturación
-        Venta nuevaVenta = new Venta(0, LocalDateTime.now(), new ArrayList<>(), total, cbMetodoPago.getValue());
+        // 1. Instanciamos el objeto de negocio unificado pasándole los ítems del carrito
+        Venta nuevaVenta = new Venta(0, LocalDateTime.now(), new ArrayList<>(carrito), total, cbMetodoPago.getValue());
         nuevaVenta.setClienteNombre(txtCliente.getValue().isEmpty() ? "Consumidor Final" : txtCliente.getValue());
         nuevaVenta.setClienteCedula(txtCedula.getValue().isEmpty() ? "9999999999" : txtCedula.getValue());
 
-        // 1. Registrar cabecera de la venta
-        if (ventasDAO.registrarVenta(nuevaVenta)) {
-            // 2. Registrar los detalles correlacionales de la venta
-            for (ItemVenta item : carrito) {
-                ventasDAO.registrarDetalleVenta(item, nuevaVenta.getIdVenta());
-            }
+        // 2. Instanciamos TU servicio de lógica en lugar del DAO directo
+        com.restaurante.logic.VentasService ventasService = new com.restaurante.logic.VentasService();
 
+        // 3. Ejecutamos la transacción unificada (Guarda cabecera, detalles y descuenta inventario)
+        if (ventasService.registrarVentaCompleta(nuevaVenta)) {
             Notification.show("¡Venta procesada con éxito con ID: " + nuevaVenta.getIdVenta() + "!", 3000, Notification.Position.MIDDLE);
 
             // Limpiar formulario para la siguiente orden
@@ -258,7 +264,7 @@ public class VistaPuntoVenta extends HorizontalLayout {
             txtCedula.clear();
             actualizarResumenPedido();
         } else {
-            Notification.show("Error crítico al guardar la venta en SQLite", 3000, Notification.Position.MIDDLE);
+            Notification.show("Error crítico al procesar la venta a través del servicio", 3000, Notification.Position.MIDDLE);
         }
     }
 }

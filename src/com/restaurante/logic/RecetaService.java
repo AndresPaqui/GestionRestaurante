@@ -71,7 +71,15 @@ public class RecetaService {
      * Devuelve todos los platos. (Opcional: aquí Helen podría llamar a calcularCostoProduccion
      * para cada plato antes de enviarlos a la UI, para que José los muestre completos).
      */
+    /**
+     * Devuelve todos los platos del menú inyectándoles su costo de producción en tiempo real.
+     */
     public List<Plato> listarMenu() {
-        return platoDAO.listarTodos();
+        List<Plato> platos = platoDAO.listarTodos();
+        for (Plato p : platos) {
+            double costo = calcularCostoProduccion(p.getId());
+            p.setCostoProduccion(costo); // Seteamos el costo calculado dinámicamente
+        }
+        return platos;
     }
 }

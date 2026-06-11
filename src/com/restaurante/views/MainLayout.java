@@ -15,6 +15,8 @@ public class MainLayout extends AppLayout {
         SideNav nav = new SideNav();
         nav.addItem(new SideNavItem("Punto de Venta", VistaPuntoVenta.class));
         nav.addItem(new SideNavItem("Inventario", VistaInventario.class));
+        nav.addItem(new SideNavItem("Recetas", VistaRecetas.class));
+        nav.addItem(new SideNavItem("Reportes", VistaRecetas.class));
 
         addToNavbar(new DrawerToggle(), title);
         addToDrawer(new Scroller(nav));
