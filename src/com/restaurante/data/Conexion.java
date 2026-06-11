@@ -73,10 +73,12 @@ public class Conexion {
 
         String ventas = """
                 CREATE TABLE IF NOT EXISTS ventas (
-                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                    fecha       TEXT    NOT NULL,
-                    total_venta REAL    NOT NULL DEFAULT 0,
-                    metodo_pago TEXT    NOT NULL
+                    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                    fecha          TEXT    NOT NULL,
+                    total_venta    REAL    NOT NULL DEFAULT 0,
+                    metodo_pago    TEXT    NOT NULL,
+                    cliente_nombre TEXT,
+                    cliente_cedula TEXT
                 );""";
 
         String detalleVentas = """
