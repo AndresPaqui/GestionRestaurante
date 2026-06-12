@@ -19,11 +19,13 @@ import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.router.Route;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Route(value = "inventario", layout = MainLayout.class)
 public class VistaInventario extends HorizontalLayout {
 
     private final InsumoDAO insumoDAO = new InsumoDAO();
+    /*private final com.restaurante.logic.InventarioService inventarioService = new com.restaurante.logic.InventarioService();*/
 
     // Componentes interactivos de la interfaz
     private final Grid<Insumo> gridInsumos = new Grid<>(Insumo.class, false);
@@ -35,6 +37,7 @@ public class VistaInventario extends HorizontalLayout {
     private final NumberField numStockMinimo = new NumberField("Stock Mínimo");
     private final NumberField numCostoUnitario = new NumberField("Costo Unitario ($)");
     private final ComboBox<String> cbUnidadMedida = new ComboBox<>("Unidad de Medida");
+
 
     private final Button btnGuardar = new Button("Guardar Insumo", VaadinIcon.DISC.create());
     private final Button btnLimpiar = new Button("Limpiar");
@@ -126,7 +129,21 @@ public class VistaInventario extends HorizontalLayout {
 
         // Consultamos la base de datos al inicializar la pestaña
         actualizarTablaInsumos();
+
     }
+
+    /**
+     * Muestra una alerta con todos los insumos que están por agotarse
+     */
+    /*private void verificarAlertasStock() {
+        List<Insumo> alertas = inventarioService.obtenerAlertasStock();
+        if (!alertas.isEmpty()) {
+            // Extraemos los nombres de los insumos afectados
+            String nombres = alertas.stream().map(Insumo::getNombre).collect(Collectors.joining(", "));
+            Notification alerta = Notification.show("⚠️ STOCK CRÍTICO: " + nombres, 5000, Notification.Position.TOP_CENTER);
+            alerta.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
+        }
+    }*/
 
     /**
      * Sincroniza la tabla de Vaadin con los registros almacenados en SQLite
@@ -135,6 +152,8 @@ public class VistaInventario extends HorizontalLayout {
         List<Insumo> insumosBD = insumoDAO.listarTodos();
         gridInsumos.setItems(insumosBD);
     }
+
+
 
     /**
      * Lee el formulario y decide si debe registrar una inserción o una actualización en la BD

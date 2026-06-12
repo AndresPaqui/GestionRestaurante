@@ -91,4 +91,30 @@ public class VentasDAO {
         }
         return lista;
     }
+
+    public List<ItemVenta> obtenerDetallesPorVenta(int idVenta) {
+        List<ItemVenta> detalles = new ArrayList<>();
+        String sql = """
+            SELECT dv.cantidad, dv.subtotal, p.id AS id_plato, p.nombre, p.precio_venta
+            FROM detalle_ventas dv
+            JOIN platos p ON dv.id_plato = p.id
+            WHERE dv.id_venta = ?
+            """;
+        try (PreparedStatement ps = Conexion.conectar().prepareStatement(sql)) {
+            ps.setInt(1, idVenta);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                com.restaurante.model.Plato plato = new com.restaurante.model.Plato(
+                        rs.getInt("id_plato"),
+                        rs.getString("nombre"),
+                        rs.getDouble("precio_venta"),
+                        0, null
+                );
+                detalles.add(new ItemVenta(plato, rs.getInt("cantidad"), rs.getDouble("subtotal")));
+            }
+        } catch (SQLException e) {
+            System.err.println("[VentasDAO] obtenerDetallesPorVenta: " + e.getMessage());
+        }
+        return detalles;
+    }
 }

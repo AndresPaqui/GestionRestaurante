@@ -91,4 +91,43 @@ public class VentasService {
     public List<Venta> obtenerHistorialVentas() {
         return ventasDAO.listarHistorial();
     }
+
+    public List<ItemVenta> obtenerDetallesPorVenta(int idVenta) {
+        return ventasDAO.obtenerDetallesPorVenta(idVenta);
+    }
+
+    /**
+     * Verifica matemáticamente si hay suficiente inventario para cocinar todo el pedido
+     */
+    public String validarDisponibilidadStock(Venta venta) {
+        // Mapa para acumular cuántos gramos/unidades necesitamos de cada insumo para toda la factura
+        java.util.Map<Integer, Double> stockNecesario = new java.util.HashMap<>();
+
+        for (ItemVenta item : venta.getDetalles()) {
+            // Buscamos la receta del plato
+            java.util.Map<Insumo, Double> receta = recetaDAO.obtenerIngredientesPorPlato(item.getPlato().getId());
+
+            for (java.util.Map.Entry<Insumo, Double> entry : receta.entrySet()) {
+                int idInsumo = entry.getKey().getId();
+                // Multiplicamos (Lo que lleva 1 plato * La cantidad de platos en el carrito)
+                double cantTotalRequerida = entry.getValue() * item.getCantidad();
+
+                // Acumulamos (por si dos platos diferentes usan el mismo ingrediente, ej. Papas)
+                stockNecesario.put(idInsumo, stockNecesario.getOrDefault(idInsumo, 0.0) + cantTotalRequerida);
+            }
+        }
+
+        // Ahora cruzamos los totales calculados contra la base de datos real
+        for (java.util.Map.Entry<Integer, Double> requerimiento : stockNecesario.entrySet()) {
+            Insumo insumoBD = insumoDAO.buscarPorId(requerimiento.getKey());
+
+            if (insumoBD.getStockActual() < requerimiento.getValue()) {
+                return "Stock insuficiente de '" + insumoBD.getNombre() + "'. Se requieren "
+                        + requerimiento.getValue() + " " + insumoBD.getUnidadMedida()
+                        + ", pero solo hay " + insumoBD.getStockActual() + ".";
+            }
+        }
+
+        return "OK"; // Si pasa el bucle, hay stock para todo
+    }
 }
