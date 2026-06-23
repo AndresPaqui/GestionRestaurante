@@ -1,6 +1,8 @@
 package com.restaurante.views;
 
 import com.restaurante.data.PlatoDAO;
+import com.restaurante.data.RecetaDAO;
+import com.restaurante.logic.InventarioService;
 import com.restaurante.logic.VentasService;
 import com.restaurante.model.Insumo;
 import com.restaurante.model.ItemVenta;
@@ -17,6 +19,8 @@ import com.vaadin.flow.component.html.Hr;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -27,6 +31,7 @@ import com.vaadin.flow.router.Route;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Route(value = "", layout = MainLayout.class)
@@ -34,19 +39,20 @@ public class VistaPuntoVenta extends HorizontalLayout {
 
     private final PlatoDAO platoDAO = new PlatoDAO();
     private final VentasService ventasService = new VentasService();
-    /*private final com.restaurante.logic.InventarioService inventarioService = new com.restaurante.logic.InventarioService();*/
+    private final RecetaDAO recetaDAO = new RecetaDAO(); // Para validar si el plato tiene receta
+    private final InventarioService inventarioService = new InventarioService(); // Para el indicador de stock
 
-    // Lista del carrito actual en memoria
     private final List<ItemVenta> carrito = new ArrayList<>();
 
-    // Componentes visuales que necesitamos actualizar dinámicamente
     private final VerticalLayout contenedorPlatos = new VerticalLayout();
     private final Grid<ItemVenta> gridPedido = new Grid<>(ItemVenta.class, false);
     private final Span lblSubtotal = new Span("Subtotal: $0.00");
     private final Span lblIva = new Span("IVA (15%): $0.00");
     private final Span lblTotal = new Span("TOTAL: $0.00");
 
-    // Campos de facturación con marcas de agua dinámicas
+    // El nuevo indicador visual de stock global
+    private final Span badgeStockGlobal = new Span();
+
     private final TextField txtCedula = new TextField("Cédula / RUC");
     private final TextField txtCliente = new TextField("Nombre del Cliente");
     private final ComboBox<String> cbMetodoPago = new ComboBox<>("Método de Pago");
@@ -57,13 +63,12 @@ public class VistaPuntoVenta extends HorizontalLayout {
         setSpacing(true);
 
         // =========================================================================
-        // COLUMNA IZQUIERDA: Buscador, Catálogo de Platos e Historial (60%)
+        // COLUMNA IZQUIERDA
         // =========================================================================
         VerticalLayout colIzquierda = new VerticalLayout();
         colIzquierda.setWidth("60%");
         colIzquierda.setHeightFull();
 
-        // Barra superior con buscador y acceso al historial operativo
         HorizontalLayout barraAcciones = new HorizontalLayout();
         barraAcciones.setWidthFull();
         barraAcciones.setAlignItems(Alignment.BASELINE);
@@ -73,10 +78,8 @@ public class VistaPuntoVenta extends HorizontalLayout {
         txtBuscar.setPrefixComponent(VaadinIcon.SEARCH.create());
         txtBuscar.setClearButtonVisible(true);
         barraAcciones.setFlexGrow(1, txtBuscar);
-
         txtBuscar.addValueChangeListener(e -> cargarCatalogoPlatos(e.getValue()));
 
-        // NUEVO BOTÓN: Ver Ventas Realizadas (Historial Emergente)
         Button btnVerHistorial = new Button("Ventas Realizadas", VaadinIcon.FILE_TEXT.create());
         btnVerHistorial.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
         btnVerHistorial.addClickListener(e -> abrirModalHistorial());
@@ -86,14 +89,25 @@ public class VistaPuntoVenta extends HorizontalLayout {
         H2 tituloPlatos = new H2("Listado de Platos");
 
         contenedorPlatos.setWidthFull();
-        contenedorPlatos.getStyle().set("display", "grid")
+        contenedorPlatos.getStyle()
+                .set("display", "grid")
                 .set("grid-template-columns", "1fr 1fr")
-                .set("gap", "15px");
+                .set("gap", "15px")
+
+                // ── AQUÍ PONEMOS LA PATA DE POLLO AL FONDO DE TODO EL CONTENEDOR ──
+                // Usamos un degradado sutil encima para que el fondo sea claro y no tape las letras
+                .set("background-image", "linear-gradient(rgba(245, 245, 245, 0.9), rgba(245, 245, 245, 0.9)), url('https://img.icons8.com/color/500/chicken-thigh.png')")
+                .set("background-repeat", "no-repeat")
+                .set("background-position", "center") // Centrada en medio de todo el catálogo
+                .set("background-size", "300px")       // Un tamaño grande para que abarque varias recetas
+                .set("padding", "15px")
+                .set("border-radius", "var(--lumo-border-radius-l)")
+                .set("background-color", "var(--lumo-contrast-5pct)");
 
         colIzquierda.add(barraAcciones, tituloPlatos, contenedorPlatos);
 
         // =========================================================================
-        // COLUMNA DERECHA: Detalle del Pedido y Facturación (40%)
+        // COLUMNA DERECHA
         // =========================================================================
         VerticalLayout colDerecha = new VerticalLayout();
         colDerecha.setWidth("40%");
@@ -102,7 +116,13 @@ public class VistaPuntoVenta extends HorizontalLayout {
                 .set("border-radius", "var(--lumo-border-radius-l)")
                 .set("padding", "20px");
 
+        // NUEVO: Cabecera del pedido con indicador de stock integrado
         H3 tituloPedido = new H3("Resumen del Pedido");
+        tituloPedido.getStyle().set("margin", "0");
+        HorizontalLayout cabeceraPedido = new HorizontalLayout(tituloPedido, badgeStockGlobal);
+        cabeceraPedido.setAlignItems(Alignment.CENTER);
+        cabeceraPedido.setJustifyContentMode(JustifyContentMode.BETWEEN);
+        cabeceraPedido.setWidthFull();
 
         gridPedido.setHeight("250px");
         gridPedido.addColumn(ItemVenta::getCantidad).setHeader("Cant.").setWidth("80px").setFlexGrow(0);
@@ -124,14 +144,11 @@ public class VistaPuntoVenta extends HorizontalLayout {
 
         lblTotal.getStyle().set("font-size", "var(--lumo-font-size-xl)").set("color", "var(--lumo-primary-text-color)");
 
-        // Sección de Facturación con los Placeholders en Gris solicitados
         H3 tituloFactura = new H3("Datos de Facturación");
-
         txtCedula.setWidthFull();
-        txtCedula.setPlaceholder("9999999999"); // Leyenda indicativa en gris
-
+        txtCedula.setPlaceholder("9999999999");
         txtCliente.setWidthFull();
-        txtCliente.setPlaceholder("Consumidor Final"); // Leyenda indicativa en gris
+        txtCliente.setPlaceholder("Consumidor Final");
 
         cbMetodoPago.setItems("Efectivo", "Tarjeta de Crédito", "Transferencia");
         cbMetodoPago.setValue("Efectivo");
@@ -140,27 +157,30 @@ public class VistaPuntoVenta extends HorizontalLayout {
         btnCobrar.setWidthFull();
         btnCobrar.addClickListener(e -> procesarVenta());
 
-        colDerecha.add(tituloPedido, gridPedido, seccionTotales, tituloFactura, txtCedula, txtCliente, cbMetodoPago, btnCobrar);
+        colDerecha.add(cabeceraPedido, gridPedido, seccionTotales, tituloFactura, txtCedula, txtCliente, cbMetodoPago, btnCobrar);
 
         add(colIzquierda, colDerecha);
 
         cargarCatalogoPlatos("");
         actualizarResumenPedido();
+        actualizarIndicadorStockGlobal(); // Revisa el stock al cargar la página
     }
-/*
-    *//**
-     * Alerta general para el cajero sobre el estado del inventario
-     *//*
-    private void verificarEstadoInventario() {
+
+    /**
+     * Revisa si hay insumos en peligro y actualiza la etiqueta visual junto a "Resumen del pedido"
+     */
+    private void actualizarIndicadorStockGlobal() {
         List<Insumo> alertas = inventarioService.obtenerAlertasStock();
-        if (alertas.size() == 1) {
-            Notification.show("⚠️ Atención: Un insumo está por agotarse en bodega.", 4000, Notification.Position.TOP_END)
-                    .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_WARNING);
-        } else if (alertas.size() > 1) {
-            Notification.show("⚠️ Atención: Múltiples insumos están por agotarse en bodega.", 4000, Notification.Position.TOP_END)
-                    .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_WARNING);
+        badgeStockGlobal.getElement().getThemeList().clear();
+
+        if (alertas.isEmpty()) {
+            badgeStockGlobal.setText("Stock Óptimo");
+            badgeStockGlobal.getElement().getThemeList().add("badge success");
+        } else {
+            badgeStockGlobal.setText("Stock Peligroso (" + alertas.size() + " insumos)");
+            badgeStockGlobal.getElement().getThemeList().add("badge error");
         }
-    }*/
+    }
 
     private void cargarCatalogoPlatos(String filtro) {
         contenedorPlatos.removeAll();
@@ -173,11 +193,16 @@ public class VistaPuntoVenta extends HorizontalLayout {
         for (Plato plato : platosFiltrados) {
             HorizontalLayout tarjetaPlato = new HorizontalLayout();
             tarjetaPlato.setWidthFull();
-            tarjetaPlato.getStyle().set("padding", "10px")
+            tarjetaPlato.getStyle()
+                    .set("padding", "10px")
                     .set("border", "1px solid var(--lumo-contrast-20pct)")
                     .set("border-radius", "var(--lumo-border-radius-m)")
                     .set("align-items", "center")
-                    .set("justify-content", "space-between");
+                    .set("justify-content", "space-between")
+
+                    // ── FONDO TRANSLÚCIDO PARA QUE SE VEA EL FONDO GENERAL ABAJO ──
+                    .set("background-color", "rgba(255, 255, 255, 0.85)")
+                    .set("box-shadow", "var(--lumo-box-shadow-xs)");
 
             VerticalLayout infoPlato = new VerticalLayout(new Span(plato.getNombre()), new Span(String.format("$%.2f", plato.getPrecioVenta())));
             infoPlato.setSpacing(false);
@@ -193,6 +218,14 @@ public class VistaPuntoVenta extends HorizontalLayout {
     }
 
     private void agregarAlPedido(Plato plato) {
+        // --- PARTE A: RESTRICCIÓN DE RECETA VACÍA ---
+        Map<Insumo, Double> receta = recetaDAO.obtenerIngredientesPorPlato(plato.getId());
+        if (receta == null || receta.isEmpty()) {
+            Notification.show("❌ El plato '" + plato.getNombre() + "' no tiene receta configurada. No se puede vender.", 4000, Notification.Position.MIDDLE)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            return; // Bloqueamos la acción, no se agrega al carrito
+        }
+
         ItemVenta itemExistente = carrito.stream()
                 .filter(item -> item.getPlato().getId() == plato.getId())
                 .findFirst().orElse(null);
@@ -216,9 +249,6 @@ public class VistaPuntoVenta extends HorizontalLayout {
         actualizarResumenPedido();
     }
 
-    /**
-     * Ajuste Dinámico de Estado del Botón Procesar Venta
-     */
     private void actualizarResumenPedido() {
         gridPedido.setItems(carrito);
         gridPedido.getDataProvider().refreshAll();
@@ -231,7 +261,6 @@ public class VistaPuntoVenta extends HorizontalLayout {
         lblIva.setText(String.format("IVA (15%%): $%.2f", iva));
         lblTotal.setText(String.format("TOTAL: $%.2f", total));
 
-        // AJUSTE UX SOLICITADO: Control de opacidad y estados del botón
         if (carrito.isEmpty()) {
             btnCobrar.setEnabled(false);
             btnCobrar.removeThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
@@ -252,12 +281,10 @@ public class VistaPuntoVenta extends HorizontalLayout {
         nuevaVenta.setClienteNombre(txtCliente.getValue().isEmpty() ? "Consumidor Final" : txtCliente.getValue());
         nuevaVenta.setClienteCedula(txtCedula.getValue().isEmpty() ? "9999999999" : txtCedula.getValue());
 
-        // --- NUEVA VALIDACIÓN DE STOCK ---
         String validacionStock = ventasService.validarDisponibilidadStock(nuevaVenta);
         if (!validacionStock.equals("OK")) {
-            // Si falta materia prima, lanzamos alerta roja y cancelamos la venta
             Notification.show("❌ VENTA RECHAZADA: " + validacionStock, 5000, Notification.Position.MIDDLE)
-                    .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
             return;
         }
 
@@ -267,13 +294,12 @@ public class VistaPuntoVenta extends HorizontalLayout {
             txtCliente.clear();
             txtCedula.clear();
             actualizarResumenPedido();
+            actualizarIndicadorStockGlobal(); // Forzamos actualización visual tras descontar la bodega
         } else {
             Notification.show("Error crítico al procesar la venta a través del servicio", 3000, Notification.Position.MIDDLE);
         }
     }
-    /**
-     * Ventana emergente con el historial de facturación y desglose de platos comprados
-     */
+
     private void abrirModalHistorial() {
         Dialog modal = new Dialog();
         modal.setHeaderTitle("Últimas Ventas Realizadas");
@@ -307,7 +333,7 @@ public class VistaPuntoVenta extends HorizontalLayout {
                         new Span(String.format("Total: $%.2f", v.getTotalVenta()))
                 );
                 lineaCabecera.setWidthFull();
-                lineaCabecera.setJustifyContentMode(JustifyContentMode.BETWEEN);
+                lineaCabecera.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
                 lineaCabecera.getStyle().set("font-weight", "bold");
 
                 // Sección oculta con los detalles de facturación y el desglose de platos
@@ -359,7 +385,7 @@ public class VistaPuntoVenta extends HorizontalLayout {
                                         new Span(String.format("$%.2f", item.getSubtotal()))
                                 );
                                 filaItem.setWidthFull();
-                                filaItem.setJustifyContentMode(JustifyContentMode.BETWEEN);
+                                filaItem.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
                                 filaItem.getStyle().set("font-size", "var(--lumo-font-size-s)");
                                 seccionItems.add(filaItem);
                             }
@@ -384,3 +410,4 @@ public class VistaPuntoVenta extends HorizontalLayout {
         modal.open();
     }
 }
+

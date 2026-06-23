@@ -92,6 +92,8 @@ public class Conexion {
                     FOREIGN KEY (id_plato) REFERENCES platos(id)
                 );""";
 
+
+
         try (Statement st = instancia.createStatement()) {
             st.execute(pragma);
             st.execute(insumos);
@@ -99,6 +101,14 @@ public class Conexion {
             st.execute(recetas);
             st.execute(ventas);
             st.execute(detalleVentas);
+            System.out.println("[Conexion] Estructura de tablas verificada/creada.");
+
+            try (java.sql.ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM insumos")) {
+                if (rs.next() && rs.getInt(1) == 0) {
+                    System.out.println("[Conexion] Base de datos vacía detectada. Sembrando datos...");
+                    DataInjector.inyectarDatosDemostrativos();
+                }
+            }
         } catch (SQLException e) {
             System.err.println("[Conexion] Error al crear tablas: " + e.getMessage());
         }

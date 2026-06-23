@@ -11,6 +11,7 @@ import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
@@ -99,8 +100,25 @@ public class VistaRecetas extends HorizontalLayout {
         gridIngredientes.addColumn(entry -> String.format("$%.2f", entry.getKey().getCostoUnitario() * entry.getValue())).setHeader("Costo");
 
         cbInsumos.setWidthFull();
-        cbInsumos.setItemLabelGenerator(Insumo::getNombre);
+        cbInsumos.setItemLabelGenerator(insumo -> insumo.getNombre() + " [" + insumo.getUnidadMedida() + "]");
         numCantidad.setWidthFull();
+
+        // Creamos un sufijo visual nativo de Vaadin
+        Span sufijoUnidad = new Span();
+        sufijoUnidad.getStyle().set("color", "var(--lumo-secondary-text-color)");
+        numCantidad.setSuffixComponent(sufijoUnidad);
+
+        // EVENTO MÁGICO: Cuando eligen un insumo, el sufijo del NumberField cambia automáticamente
+        cbInsumos.addValueChangeListener(event -> {
+            Insumo seleccionado = event.getValue();
+            if (seleccionado != null) {
+                sufijoUnidad.setText(seleccionado.getUnidadMedida());
+                numCantidad.setPlaceholder("Ej: 0.25");
+            } else {
+                sufijoUnidad.setText("");
+                numCantidad.setPlaceholder("");
+            }
+        });
 
         btnAgregarIngrediente.addThemeVariants(ButtonVariant.LUMO_SUCCESS);
         btnAgregarIngrediente.setWidthFull();

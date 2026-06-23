@@ -130,4 +130,33 @@ public class VentasService {
 
         return "OK"; // Si pasa el bucle, hay stock para todo
     }
+
+    /**
+     * Calcula la sumatoria de todas las ventas realizadas (con IVA incluido)
+     */
+    public double calcularTotalVentasFacturadas() {
+        return obtenerHistorialVentas().stream().mapToDouble(Venta::getTotalVenta).sum();
+    }
+
+    /**
+     * Calcula el costo total de producción de los platos vendidos históricamente
+     */
+    public double calcularCostoTotalInvertido() {
+        double costoTotal = 0.0;
+        List<Venta> ventas = obtenerHistorialVentas();
+
+        for (Venta v : ventas) {
+            // Jalamos los detalles reales de cada factura
+            List<ItemVenta> items = ventasDAO.obtenerDetallesPorVenta(v.getIdVenta());
+            for (ItemVenta item : items) {
+                // Multiplicamos (Costo de producción del plato * Cantidad de veces vendida)
+                double costoPlato = recetaDAO.obtenerIngredientesPorPlato(item.getPlato().getId())
+                        .entrySet().stream()
+                        .mapToDouble(entry -> entry.getKey().getCostoUnitario() * entry.getValue())
+                        .sum();
+                costoTotal += (costoPlato * item.getCantidad());
+            }
+        }
+        return costoTotal;
+    }
 }

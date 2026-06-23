@@ -67,16 +67,22 @@ public class VistaInventario extends HorizontalLayout {
         gridInsumos.addColumn(Insumo::getNombre).setHeader("Nombre").setSortable(true);
         gridInsumos.addColumn(Insumo::getCategoria).setHeader("Categoría").setSortable(true);
 
-        // Renderizador de componentes: Píldora visual verde (Seguro) o roja (Crítico)
+        // Columna Numérica (Solo muestra el número)
+        gridInsumos.addColumn(insumo -> String.format("%.2f %s", insumo.getStockActual(), insumo.getUnidadMedida()))
+                .setHeader("Stock Actual").setSortable(true);
+
+        // NUEVA COLUMNA: Etiqueta descriptiva del estado
         gridInsumos.addColumn(new ComponentRenderer<>(insumo -> {
-            Span badge = new Span(String.format("%.2f %s", insumo.getStockActual(), insumo.getUnidadMedida()));
+            Span estado = new Span();
             if (insumo.getStockActual() <= insumo.getStockMinimo()) {
-                badge.getElement().getThemeList().add("badge error"); // CSS Nativo de Vaadin para estados de error
+                estado.setText("Estado crítico, reabastecimiento necesario");
+                estado.getElement().getThemeList().add("badge error");
             } else {
-                badge.getElement().getThemeList().add("badge success"); // CSS Nativo para estados estables
+                estado.setText("Niveles Normales");
+                estado.getElement().getThemeList().add("badge success");
             }
-            return badge;
-        })).setHeader("Stock Actual").setSortable(true);
+            return estado;
+        })).setHeader("Estado de Stock").setWidth("350px").setFlexGrow(0);
 
         gridInsumos.addColumn(insumo -> String.format("%.2f %s", insumo.getStockMinimo(), insumo.getUnidadMedida())).setHeader("Stock Mín.");
         gridInsumos.addColumn(insumo -> String.format("$%.2f", insumo.getCostoUnitario())).setHeader("Costo Unit.");
@@ -131,19 +137,6 @@ public class VistaInventario extends HorizontalLayout {
         actualizarTablaInsumos();
 
     }
-
-    /**
-     * Muestra una alerta con todos los insumos que están por agotarse
-     */
-    /*private void verificarAlertasStock() {
-        List<Insumo> alertas = inventarioService.obtenerAlertasStock();
-        if (!alertas.isEmpty()) {
-            // Extraemos los nombres de los insumos afectados
-            String nombres = alertas.stream().map(Insumo::getNombre).collect(Collectors.joining(", "));
-            Notification alerta = Notification.show("⚠️ STOCK CRÍTICO: " + nombres, 5000, Notification.Position.TOP_CENTER);
-            alerta.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
-        }
-    }*/
 
     /**
      * Sincroniza la tabla de Vaadin con los registros almacenados en SQLite
