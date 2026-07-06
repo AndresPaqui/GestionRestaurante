@@ -94,4 +94,22 @@ public class RecetaService {
         // 2. Ocultamos el plato (Soft delete)
         return platoDAO.eliminar(idPlato);
     }
+
+    /**
+     * Actualiza el nombre y el precio de un plato existente.
+     */
+    public boolean modificarPlato(Plato plato) {
+        if (plato == null || plato.getId() <= 0) return false;
+        if (plato.getNombre() == null || plato.getNombre().trim().isEmpty()) return false;
+        if (plato.getPrecioVenta() <= 0) return false;
+        return platoDAO.actualizar(plato);
+    }
+
+    /**
+     * Elimina un único insumo de la receta de un plato.
+     */
+    public boolean removerIngredienteDePlato(int idPlato, int idInsumo) {
+        if (idPlato <= 0 || idInsumo <= 0) return false;
+        return recetaDAO.eliminarIngredienteDePlato(idPlato, idInsumo);
+    }
 }

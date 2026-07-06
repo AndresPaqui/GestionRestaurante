@@ -153,6 +153,23 @@ public class VistaPuntoVenta extends HorizontalLayout {
 
         txtDocumento.setWidthFull();
         txtDocumento.setAllowedCharPattern("[0-9]");
+
+        // --- CONEXIÓN DE ALERTAS FLOTANTES OPTIMIZADAS (UX FEEDBACK) ---
+
+        // Alerta instantánea si presionan una letra en el documento
+        txtDocumento.getElement().addEventListener("keydown", event -> {
+            Notification.show("⚠️ Formato incorrecto: Solo se permiten números [0-9] en este campo.",
+                            2000, Notification.Position.TOP_CENTER)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+        }).setFilter("event.key.length === 1 && !/[0-9]/.test(event.key) && event.key !== 'Enter'");
+
+        // Alerta instantánea si presionan un número en el nombre del cliente
+        txtCliente.getElement().addEventListener("keydown", event -> {
+            Notification.show("⚠️ Formato incorrecto: No ingrese números en el nombre del cliente.",
+                            2000, Notification.Position.TOP_CENTER)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+        }).setFilter("/[0-9]/.test(event.key)");
+
         txtDocumento.setPlaceholder("9999999999");
         configurarMaximoDocumento(rgTipoDocumento.getValue());
 
@@ -309,6 +326,15 @@ public class VistaPuntoVenta extends HorizontalLayout {
                         .addThemeVariants(NotificationVariant.LUMO_ERROR);
                 return;
             }
+        }
+
+        // Validación final preventiva por si usaron "Copiar y Pegar" con el mouse
+        String clienteNombre = txtCliente.getValue() == null ? "" : txtCliente.getValue().trim();
+        if (clienteNombre.matches(".*\\d.*")) { // Si contiene cualquier dígito del 0 al 9
+            Notification.show("❌ Error: El nombre del cliente no puede contener números.",
+                            3500, Notification.Position.MIDDLE)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            return;
         }
 
         Venta nuevaVenta = new Venta(0, LocalDateTime.now(), new ArrayList<>(carrito), total, cbMetodoPago.getValue());

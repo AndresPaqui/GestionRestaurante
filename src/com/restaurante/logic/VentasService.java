@@ -159,4 +159,61 @@ public class VentasService {
         }
         return costoTotal;
     }
+
+    /**
+     * Devuelve el historial de ventas acotado entre un rango de fechas.
+     */
+    public List<Venta> obtenerHistorialVentasPorFecha(java.time.LocalDate inicio, java.time.LocalDate fin) {
+        if (inicio == null || fin == null) {
+            return obtenerHistorialVentas();
+        }
+
+        // Convertimos los rangos a las horas límite del día (00:00:00 y 23:59:59)
+        java.time.LocalDateTime desde = inicio.atStartOfDay();
+        java.time.LocalDateTime hasta = fin.atTime(23, 59, 59);
+
+        // Filtramos comparando los objetos de fecha nativos
+        return obtenerHistorialVentas().stream()
+                .filter(v -> {
+                    if (v.getFecha() == null) return false;
+
+                    // Si tu método v.getFecha() devuelve un LocalDateTime:
+                    java.time.LocalDateTime fechaVenta = v.getFecha();
+                    return !fechaVenta.isBefore(desde) && !fechaVenta.isAfter(hasta);
+                })
+                .toList();
+    }
+
+    /**
+     * Calcula la sumatoria de las ventas facturadas en un rango de fechas.
+     */
+    public double calcularTotalVentasFacturadasPorFecha(java.time.LocalDate inicio, java.time.LocalDate fin) {
+        return obtenerHistorialVentasPorFecha(inicio, fin).stream()
+                .mapToDouble(Venta::getTotalVenta)
+                .sum();
+    }
+
+    /**
+     * Calcula el costo de producción acumulado únicamente de las ventas del periodo seleccionado.
+     */
+    public double calcularCostoTotalInvertidoPorFecha(java.time.LocalDate inicio, java.time.LocalDate fin) {
+        double costoTotal = 0.0;
+        List<Venta> ventasPeriodo = obtenerHistorialVentasPorFecha(inicio, fin);
+
+        for (Venta v : ventasPeriodo) {
+            List<ItemVenta> items = ventasDAO.obtenerDetallesPorVenta(v.getIdVenta()); // Usando la conexión por renglón
+            if (items == null) {
+                // Validación por si tu método devuelve la lista vacía o nula
+                items = ventasDAO.obtenerDetallesPorVenta(v.getIdVenta());
+            }
+            for (ItemVenta item : items) {
+                double costoPlato = recetaDAO.obtenerIngredientesPorPlato(item.getPlato().getId())
+                        .entrySet().stream()
+                        .mapToDouble(entry -> entry.getKey().getCostoUnitario() * entry.getValue())
+                        .sum();
+                costoTotal += (costoPlato * item.getCantidad());
+            }
+        }
+        return costoTotal;
+    }
 }
