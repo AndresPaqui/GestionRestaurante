@@ -24,6 +24,7 @@ import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.radiobutton.RadioButtonGroup;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.router.Route;
@@ -32,7 +33,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Route(value = "", layout = MainLayout.class)
 public class VistaPuntoVenta extends HorizontalLayout {
@@ -53,7 +53,8 @@ public class VistaPuntoVenta extends HorizontalLayout {
     // El nuevo indicador visual de stock global
     private final Span badgeStockGlobal = new Span();
 
-    private final TextField txtCedula = new TextField("Cédula / RUC");
+    private final RadioButtonGroup<String> rgTipoDocumento = new RadioButtonGroup<>();
+    private final TextField txtDocumento = new TextField("Número de Documento");
     private final TextField txtCliente = new TextField("Nombre del Cliente");
     private final ComboBox<String> cbMetodoPago = new ComboBox<>("Método de Pago");
     private final Button btnCobrar = new Button("Procesar Venta", VaadinIcon.CASH.create());
@@ -145,10 +146,30 @@ public class VistaPuntoVenta extends HorizontalLayout {
         lblTotal.getStyle().set("font-size", "var(--lumo-font-size-xl)").set("color", "var(--lumo-primary-text-color)");
 
         H3 tituloFactura = new H3("Datos de Facturación");
-        txtCedula.setWidthFull();
-        txtCedula.setPlaceholder("9999999999");
+
+        rgTipoDocumento.setLabel("Tipo de Documento");
+        rgTipoDocumento.setItems("Cédula", "RUC");
+        rgTipoDocumento.setValue("Cédula");
+
+        txtDocumento.setWidthFull();
+        txtDocumento.setAllowedCharPattern("[0-9]");
+        txtDocumento.setPlaceholder("9999999999");
+        configurarMaximoDocumento(rgTipoDocumento.getValue());
+
+        rgTipoDocumento.addValueChangeListener(event -> {
+            String tipo = event.getValue() == null ? "Cédula" : event.getValue();
+            configurarMaximoDocumento(tipo);
+
+            String valorActual = txtDocumento.getValue();
+            int maxLen = "RUC".equals(tipo) ? 13 : 10;
+            if (valorActual != null && valorActual.length() > maxLen) {
+                txtDocumento.setValue(valorActual.substring(0, maxLen));
+            }
+        });
+
         txtCliente.setWidthFull();
         txtCliente.setPlaceholder("Consumidor Final");
+        txtCliente.setAllowedCharPattern("[A-Za-zÁÉÍÓÚáéíóúÑñüÜ ]");
 
         cbMetodoPago.setItems("Efectivo", "Tarjeta de Crédito", "Transferencia");
         cbMetodoPago.setValue("Efectivo");
@@ -157,7 +178,7 @@ public class VistaPuntoVenta extends HorizontalLayout {
         btnCobrar.setWidthFull();
         btnCobrar.addClickListener(e -> procesarVenta());
 
-        colDerecha.add(cabeceraPedido, gridPedido, seccionTotales, tituloFactura, txtCedula, txtCliente, cbMetodoPago, btnCobrar);
+        colDerecha.add(cabeceraPedido, gridPedido, seccionTotales, tituloFactura, rgTipoDocumento, txtDocumento, txtCliente, cbMetodoPago, btnCobrar);
 
         add(colIzquierda, colDerecha);
 
@@ -188,7 +209,7 @@ public class VistaPuntoVenta extends HorizontalLayout {
 
         List<Plato> platosFiltrados = platosBD.stream()
                 .filter(p -> p.getNombre().toLowerCase().contains(filtro.toLowerCase()))
-                .collect(Collectors.toList());
+                .toList();
 
         for (Plato plato : platosFiltrados) {
             HorizontalLayout tarjetaPlato = new HorizontalLayout();
@@ -277,9 +298,33 @@ public class VistaPuntoVenta extends HorizontalLayout {
 
         double total = carrito.stream().mapToDouble(ItemVenta::getSubtotal).sum() * 1.15;
 
+        String tipoDocumento = rgTipoDocumento.getValue() == null ? "Cédula" : rgTipoDocumento.getValue();
+        String documento = txtDocumento.getValue() == null ? "" : txtDocumento.getValue().trim();
+
+        if (!documento.isEmpty()) {
+            int longitudEsperada = "RUC".equals(tipoDocumento) ? 13 : 10;
+            if (documento.length() != longitudEsperada) {
+                Notification.show("El " + tipoDocumento + " debe tener exactamente " + longitudEsperada + " dígitos.",
+                                3500, Notification.Position.MIDDLE)
+                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                return;
+            }
+        }
+
         Venta nuevaVenta = new Venta(0, LocalDateTime.now(), new ArrayList<>(carrito), total, cbMetodoPago.getValue());
-        nuevaVenta.setClienteNombre(txtCliente.getValue().isEmpty() ? "Consumidor Final" : txtCliente.getValue());
-        nuevaVenta.setClienteCedula(txtCedula.getValue().isEmpty() ? "9999999999" : txtCedula.getValue());
+
+        String mensajeFactura;
+        if (documento.isEmpty()) {
+            nuevaVenta.setClienteNombre("Consumidor Final");
+            nuevaVenta.setClienteCedula("9999999999");
+            mensajeFactura = "Factura guardada con consumidor final";
+        } else {
+            nuevaVenta.setClienteNombre(txtCliente.getValue().isEmpty() ? "Consumidor Final" : txtCliente.getValue());
+            nuevaVenta.setClienteCedula(documento);
+            mensajeFactura = "RUC".equals(tipoDocumento)
+                    ? "Factura guardada con RUC"
+                    : "Factura guardada con cédula";
+        }
 
         String validacionStock = ventasService.validarDisponibilidadStock(nuevaVenta);
         if (!validacionStock.equals("OK")) {
@@ -289,15 +334,24 @@ public class VistaPuntoVenta extends HorizontalLayout {
         }
 
         if (ventasService.registrarVentaCompleta(nuevaVenta)) {
-            Notification.show("¡Venta procesada con éxito con ID: " + nuevaVenta.getIdVenta() + "!", 3000, Notification.Position.MIDDLE);
+            Notification.show(mensajeFactura, 3000, Notification.Position.MIDDLE)
+                    .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
             carrito.clear();
             txtCliente.clear();
-            txtCedula.clear();
+            txtDocumento.clear();
+            rgTipoDocumento.setValue("Cédula");
+            configurarMaximoDocumento("Cédula");
             actualizarResumenPedido();
             actualizarIndicadorStockGlobal(); // Forzamos actualización visual tras descontar la bodega
         } else {
             Notification.show("Error crítico al procesar la venta a través del servicio", 3000, Notification.Position.MIDDLE);
         }
+    }
+
+    private void configurarMaximoDocumento(String tipoDocumento) {
+        boolean esRuc = "RUC".equals(tipoDocumento);
+        txtDocumento.setMaxLength(esRuc ? 13 : 10);
+        txtDocumento.setPlaceholder(esRuc ? "9999999999999" : "9999999999");
     }
 
     private void abrirModalHistorial() {
@@ -410,4 +464,3 @@ public class VistaPuntoVenta extends HorizontalLayout {
         modal.open();
     }
 }
-

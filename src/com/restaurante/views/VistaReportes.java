@@ -10,6 +10,7 @@ import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.theme.lumo.LumoUtility;
 
 import java.util.HashMap;
 import java.util.List;
@@ -31,8 +32,11 @@ public class VistaReportes extends VerticalLayout {
         // =========================================================================
         // FILA SUPERIOR: Tarjetas de Rendimiento Económico (KPIs)
         // =========================================================================
-        double ingresosTotales = ventasService.calcularTotalVentasFacturadas();
-        double costosMateriaPrima = ventasService.calcularCostoTotalInvertido();
+        Double ingresosTotalesRaw = ventasService.calcularTotalVentasFacturadas();
+        Double costosMateriaPrimaRaw = ventasService.calcularCostoTotalInvertido();
+
+        double ingresosTotales = valueOrZero(ingresosTotalesRaw);
+        double costosMateriaPrima = valueOrZero(costosMateriaPrimaRaw);
         double utilidadNeta = ingresosTotales - costosMateriaPrima;
 
         HorizontalLayout filaKpis = new HorizontalLayout();
@@ -47,9 +51,15 @@ public class VistaReportes extends VerticalLayout {
         VerticalLayout cardCostos = crearTarjetaKpi("Costo de Producción",
                 String.format("$%.2f", costosMateriaPrima), VaadinIcon.CART.create(), "var(--lumo-error-text-color)");
 
-        // Tarjeta 3: Utilidad Real
+        // Tarjeta 3: Utilidad Real con lógica visual de signo
+        String colorGanancia = utilidadNeta < 0
+                ? "var(--lumo-error-text-color)"
+                : utilidadNeta > 0
+                    ? "var(--lumo-success-text-color)"
+                    : "var(--lumo-secondary-text-color)";
+
         VerticalLayout cardNeto = crearTarjetaKpi("Ganancia Neta Real",
-                String.format("$%.2f", utilidadNeta), VaadinIcon.TRENDING_UP.create(), "var(--lumo-primary-color)");
+                String.format("$%.2f", utilidadNeta), VaadinIcon.TRENDING_UP.create(), colorGanancia);
 
         filaKpis.add(cardIngresos, cardCostos, cardNeto);
         add(filaKpis);
@@ -122,15 +132,19 @@ public class VistaReportes extends VerticalLayout {
         add(panelGrafico);
     }
 
+    private double valueOrZero(Double amount) {
+        return amount != null ? amount : 0.00;
+    }
+
     /**
      * Módulo helper para construir tarjetas métricas elegantes (Estilo Dashboard)
      */
     private VerticalLayout crearTarjetaKpi(String titulo, String valor, com.vaadin.flow.component.icon.Icon icono, String colorTexto) {
         VerticalLayout tarjeta = new VerticalLayout();
         tarjeta.setWidth("33%");
+        tarjeta.addClassNames(LumoUtility.BorderRadius.MEDIUM, LumoUtility.BoxShadow.SMALL);
         tarjeta.getStyle().set("background-color", "var(--lumo-base-color)")
                 .set("border", "1px solid var(--lumo-contrast-20pct)")
-                .set("border-radius", "var(--lumo-border-radius-m)")
                 .set("padding", "20px");
 
         HorizontalLayout cabecera = new HorizontalLayout(icono, new Span(titulo));
