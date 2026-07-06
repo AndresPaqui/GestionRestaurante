@@ -3,15 +3,21 @@ package com.restaurante.views;
 import com.restaurante.logic.VentasService;
 import com.restaurante.model.ItemVenta;
 import com.restaurante.model.Venta;
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,6 +26,16 @@ import java.util.Map;
 public class VistaReportes extends VerticalLayout {
 
     private final VentasService ventasService = new VentasService();
+
+    // Componentes del Filtro Superior
+    private final DatePicker dateInicio = new DatePicker("Fecha de Inicio");
+    private final DatePicker dateFin = new DatePicker("Fecha de Fin");
+    private final Button btnFiltrar = new Button("Filtrar Rango", VaadinIcon.FILTER.create());
+
+    // Contenedores dinámicos que se refrescarán al filtrar
+    private final HorizontalLayout contenedorKpis = new HorizontalLayout();
+    private final VerticalLayout panelGrafico = new VerticalLayout();
+    private final H3 tituloGrafico = new H3("Ranking de Platos más Solicitados");
 
     public VistaReportes() {
         setSizeFull();
@@ -30,75 +46,105 @@ public class VistaReportes extends VerticalLayout {
         add(tituloPagina);
 
         // =========================================================================
-        // FILA SUPERIOR: Tarjetas de Rendimiento Económico (KPIs)
+        // BARRA DE HERRAMIENTAS: Filtro de Fechas (UX Limpia)
         // =========================================================================
-        Double ingresosTotalesRaw = ventasService.calcularTotalVentasFacturadas();
-        Double costosMateriaPrimaRaw = ventasService.calcularCostoTotalInvertido();
+        HorizontalLayout toolbarFiltros = new HorizontalLayout();
+        toolbarFiltros.setWidthFull();
+        toolbarFiltros.setAlignItems(Alignment.BASELINE);
+        toolbarFiltros.setSpacing(true);
 
-        double ingresosTotales = valueOrZero(ingresosTotalesRaw);
-        double costosMateriaPrima = valueOrZero(costosMateriaPrimaRaw);
-        double utilidadNeta = ingresosTotales - costosMateriaPrima;
+        // Configuramos los selectores de fecha en español de forma nativa
+        dateInicio.setPlaceholder("Seleccione inicio");
+        dateFin.setPlaceholder("Seleccione fin");
 
-        HorizontalLayout filaKpis = new HorizontalLayout();
-        filaKpis.setWidthFull();
-        filaKpis.setSpacing(true);
+        // Inicializamos por defecto con el mes actual para no abrumar la vista inicial
+        dateInicio.setValue(LocalDate.now().withDayOfMonth(1));
+        dateFin.setValue(LocalDate.now());
 
-        // Tarjeta 1: Ingresos
-        VerticalLayout cardIngresos = crearTarjetaKpi("Ingresos Totales (Con IVA)",
-                String.format("$%.2f", ingresosTotales), VaadinIcon.MONEY.create(), "var(--lumo-success-text-color)");
+        btnFiltrar.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        btnFiltrar.addClickListener(e -> cargarDatosDashboard(dateInicio.getValue(), dateFin.getValue()));
 
-        // Tarjeta 2: Costos
-        VerticalLayout cardCostos = crearTarjetaKpi("Costo de Producción",
-                String.format("$%.2f", costosMateriaPrima), VaadinIcon.CART.create(), "var(--lumo-error-text-color)");
-
-        // Tarjeta 3: Utilidad Real con lógica visual de signo
-        String colorGanancia = utilidadNeta < 0
-                ? "var(--lumo-error-text-color)"
-                : utilidadNeta > 0
-                    ? "var(--lumo-success-text-color)"
-                    : "var(--lumo-secondary-text-color)";
-
-        VerticalLayout cardNeto = crearTarjetaKpi("Ganancia Neta Real",
-                String.format("$%.2f", utilidadNeta), VaadinIcon.TRENDING_UP.create(), colorGanancia);
-
-        filaKpis.add(cardIngresos, cardCostos, cardNeto);
-        add(filaKpis);
+        toolbarFiltros.add(dateInicio, dateFin, btnFiltrar);
+        add(toolbarFiltros);
 
         // =========================================================================
-        // SECCIÓN INFERIOR: Top de Platos Más Vendidos (Simulación de Gráfico Analítico)
+        // INICIALIZACIÓN DE CONTENEDORES VISUALES
         // =========================================================================
-        VerticalLayout panelGrafico = new VerticalLayout();
+        contenedorKpis.setWidthFull();
+        contenedorKpis.setSpacing(true);
+        add(contenedorKpis);
+
         panelGrafico.setWidthFull();
         panelGrafico.getStyle().set("background-color", "var(--lumo-contrast-5pct)")
                 .set("border-radius", "var(--lumo-border-radius-l)")
                 .set("padding", "25px")
                 .set("margin-top", "15px");
+        add(panelGrafico);
 
-        H3 tituloGrafico = new H3("Ranking de Platos más Solicitados");
+        // Carga inicial automática de datos basados en las fechas por defecto
+        cargarDatosDashboard(dateInicio.getValue(), dateFin.getValue());
+    }
+
+    /**
+     * El motor del Dashboard. Consulta al servicio basándose en las fechas
+     * e inyecta dinámicamente los componentes en el DOM de Vaadin.
+     */
+    private void cargarDatosDashboard(LocalDate inicio, LocalDate fin) {
+        if (inicio != null && fin != null && inicio.isAfter(fin)) {
+            Notification.show("La fecha de inicio no puede ser posterior a la fecha de fin.", 3000, Notification.Position.MIDDLE);
+            return;
+        }
+
+        // Limpiamos los contenedores antes de re-dibujar
+        contenedorKpis.removeAll();
+        panelGrafico.removeAll();
         panelGrafico.add(tituloGrafico);
 
-        // Agrupamos y sumamos las cantidades vendidas por plato desde el historial real
+        // 1. OBTENCIÓN DE DATOS FILTRADOS DESDE EL SERVICE
+        double ingresosTotales = valueOrZero(ventasService.calcularTotalVentasFacturadasPorFecha(inicio, fin));
+        double costosMateriaPrima = valueOrZero(ventasService.calcularCostoTotalInvertidoPorFecha(inicio, fin));
+        double utilidadNeta = ingresosTotales - costosMateriaPrima;
+
+        // 2. RENDERIZADO DE LAS TARJETAS KPI
+        VerticalLayout cardIngresos = crearTarjetaKpi("Ingresos Totales (Con IVA)",
+                String.format("$%.2f", ingresosTotales), VaadinIcon.MONEY.create(), "var(--lumo-success-text-color)");
+
+        VerticalLayout cardCostos = crearTarjetaKpi("Costo de Producción",
+                String.format("$%.2f", costosMateriaPrima), VaadinIcon.CART.create(), "var(--lumo-error-text-color)");
+
+        String colorGanancia = utilidadNeta < 0
+                ? "var(--lumo-error-text-color)"
+                : utilidadNeta > 0
+                  ? "var(--lumo-success-text-color)"
+                  : "var(--lumo-secondary-text-color)";
+
+        VerticalLayout cardNeto = crearTarjetaKpi("Ganancia Neta Real",
+                String.format("$%.2f", utilidadNeta), VaadinIcon.TRENDING_UP.create(), colorGanancia);
+
+        contenedorKpis.add(cardIngresos, cardCostos, cardNeto);
+
+        // 3. RENDERIZADO DEL GRÁFICO DE BARRAS FILTRADO
         Map<String, Integer> rankingPlatos = new HashMap<>();
-        List<Venta> historial = ventasService.obtenerHistorialVentas();
-        for (Venta v : historial) {
+        List<Venta> historialPeriodo = ventasService.obtenerHistorialVentasPorFecha(inicio, fin);
+
+        for (Venta v : historialPeriodo) {
             List<ItemVenta> detalles = ventasService.obtenerDetallesPorVenta(v.getIdVenta());
-            for (ItemVenta item : detalles) {
-                String nombrePlato = item.getPlato().getNombre();
-                rankingPlatos.put(nombrePlato, rankingPlatos.getOrDefault(nombrePlato, 0) + item.getCantidad());
+            if (detalles != null) {
+                for (ItemVenta item : detalles) {
+                    String nombrePlato = item.getPlato().getNombre();
+                    rankingPlatos.put(nombrePlato, rankingPlatos.getOrDefault(nombrePlato, 0) + item.getCantidad());
+                }
             }
         }
 
         if (rankingPlatos.isEmpty()) {
-            panelGrafico.add(new Span("No hay suficientes transacciones comerciales para procesar estadísticas."));
+            panelGrafico.add(new Span("No existen transacciones comerciales registradas en el rango de fechas seleccionado."));
         } else {
-            // Buscamos cuál es el plato con más ventas para sacar el proporcional del 100% de la barra
             int maxVentas = rankingPlatos.values().stream().mapToInt(Integer::intValue).max().orElse(1);
 
             for (Map.Entry<String, Integer> entry : rankingPlatos.entrySet()) {
                 String plato = entry.getKey();
                 int cantidad = entry.getValue();
-
-                // Calculamos el porcentaje elástico de la barra (Regla de tres)
                 int porcentajeAncho = (cantidad * 100) / maxVentas;
 
                 HorizontalLayout filaBarra = new HorizontalLayout();
@@ -106,13 +152,12 @@ public class VistaReportes extends VerticalLayout {
                 filaBarra.setAlignItems(Alignment.CENTER);
 
                 Span lblPlato = new Span(plato);
-                lblPlato.setWidth("200px"); // Columna fija de texto para que las barras queden alineadas
+                lblPlato.setWidth("200px");
                 lblPlato.getStyle().set("font-weight", "500");
 
-                // La barra gráfica pintada dinámicamente con estilos CSS nativos
                 HorizontalLayout barraColor = new HorizontalLayout();
                 barraColor.setHeight("24px");
-                barraColor.setWidth(porcentajeAncho + "%"); // Crece según la cantidad vendida
+                barraColor.setWidth(porcentajeAncho + "%");
                 barraColor.getStyle().set("background-color", "var(--lumo-primary-color-50pct)")
                         .set("border-radius", "var(--lumo-border-radius-s)")
                         .set("padding-left", "10px")
@@ -128,17 +173,12 @@ public class VistaReportes extends VerticalLayout {
                 panelGrafico.add(filaBarra);
             }
         }
-
-        add(panelGrafico);
     }
 
     private double valueOrZero(Double amount) {
         return amount != null ? amount : 0.00;
     }
 
-    /**
-     * Módulo helper para construir tarjetas métricas elegantes (Estilo Dashboard)
-     */
     private VerticalLayout crearTarjetaKpi(String titulo, String valor, com.vaadin.flow.component.icon.Icon icono, String colorTexto) {
         VerticalLayout tarjeta = new VerticalLayout();
         tarjeta.setWidth("33%");
