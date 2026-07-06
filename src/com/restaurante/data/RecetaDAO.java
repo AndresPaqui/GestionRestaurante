@@ -67,4 +67,16 @@ public class RecetaDAO {
             return false;
         }
     }
+
+    public boolean eliminarIngredienteDePlato(int idPlato, int idInsumo) {
+        String sql = "DELETE FROM recetas WHERE id_plato = ? AND id_insumo = ?";
+        try (PreparedStatement ps = Conexion.conectar().prepareStatement(sql)) {
+            ps.setInt(1, idPlato);
+            ps.setInt(2, idInsumo);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("[RecetaDAO] eliminarIngredienteDePlato: " + e.getMessage());
+            return false;
+        }
+    }
 }

@@ -29,10 +29,18 @@ import java.util.Map;
 @Route(value = "recetas", layout = MainLayout.class)
 public class VistaRecetas extends HorizontalLayout {
 
+    private Map.Entry<Insumo, Double> ingredienteSeleccionadoEdicion = null;
+    private final Button btnCancelarEdicionIngrediente = new Button("Cancelar", VaadinIcon.CLOSE.create());
+    private final HorizontalLayout contenedorBotonesIngrediente = new HorizontalLayout();
+
     private final RecetaService recetaService = new RecetaService();
     private final RecetaDAO recetaDAO = new RecetaDAO();
     private final PlatoDAO platoDAO = new PlatoDAO();
     private final InsumoDAO insumoDAO = new InsumoDAO();
+    private Button btnCrearPlato = new Button();
+    private final Button btnCancelarEdicion = new Button("Cancelar", com.vaadin.flow.component.icon.VaadinIcon.CLOSE.create());
+    private final HorizontalLayout contenedorBotonesPlato = new HorizontalLayout();
+    private H3 tituloNuevoPlato;
 
     // Columna Izquierda
     private final Grid<Plato> gridPlatos = new Grid<>(Plato.class, false);
@@ -92,13 +100,25 @@ public class VistaRecetas extends HorizontalLayout {
                 .set("padding", "20px");
 
         // --- SUB-SECCIÓN 1: Crear Plato Nuevo ---
-        H3 tituloNuevoPlato = new H3("1. Crear Nuevo Plato en el Menú");
+        tituloNuevoPlato = new H3("1. Crear Nuevo Plato en el Menú");
         txtNombrePlato.setWidthFull();
         numPrecioPlato.setWidthFull();
-        Button btnCrearPlato = new Button("Registrar Plato", VaadinIcon.PLUS.create());
+        // Configuración inicial del botón principal
+        btnCrearPlato.setText("Registrar Plato");
+        btnCrearPlato.setIcon(VaadinIcon.PLUS.create());
         btnCrearPlato.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         btnCrearPlato.setWidthFull();
         btnCrearPlato.addClickListener(e -> guardarNuevoPlato());
+
+        // Configuración del botón Cancelar
+        btnCancelarEdicion.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
+        btnCancelarEdicion.setWidthFull();
+        btnCancelarEdicion.setVisible(false); // Oculto por defecto en modo creación
+        btnCancelarEdicion.addClickListener(e -> cargarRecetaDePlato(null)); // Al cancelar limpiamos la selección
+
+        // Contenedor que manejará los botones
+        contenedorBotonesPlato.setWidthFull();
+        contenedorBotonesPlato.add(btnCrearPlato, btnCancelarEdicion);
 
         HorizontalLayout formNuevoPlato = new HorizontalLayout(txtNombrePlato, numPrecioPlato);
         formNuevoPlato.setWidthFull();
@@ -109,6 +129,27 @@ public class VistaRecetas extends HorizontalLayout {
         gridIngredientes.addColumn(entry -> entry.getKey().getNombre()).setHeader("Ingrediente");
         gridIngredientes.addColumn(entry -> String.format("%.2f %s", entry.getValue(), entry.getKey().getUnidadMedida())).setHeader("Cant.");
         gridIngredientes.addColumn(entry -> String.format("$%.2f", entry.getKey().getCostoUnitario() * entry.getValue())).setHeader("Costo");
+
+
+        // NUEVA COLUMNA: Eliminar ingrediente de la receta seleccionada
+        gridIngredientes.addComponentColumn(entry -> {
+            Button btnQuitarInsumo = new Button(VaadinIcon.CLOSE.create());
+            btnQuitarInsumo.addThemeVariants(ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+            btnQuitarInsumo.addClickListener(e -> {
+                if (platoSeleccionado != null) {
+                    if (recetaService.removerIngredienteDePlato(platoSeleccionado.getId(), entry.getKey().getId())) {
+                        Notification.show("Ingrediente removido de la receta", 2000, Notification.Position.BOTTOM_END);
+                        cargarRecetaDePlato(platoSeleccionado);
+                        actualizarListaPlatos();
+                    }
+                }
+            });
+            return btnQuitarInsumo;
+        }).setHeader("Quitar").setWidth("75px").setFlexGrow(0);
+
+        // Al dar clic en un ingrediente de la tabla, se activa el modo edición inferior
+        gridIngredientes.asSingleSelect().addValueChangeListener(e -> cargarIngredienteParaEdicion(e.getValue()));
+
 
         configurarEmptyStateReceta();
 
@@ -133,19 +174,30 @@ public class VistaRecetas extends HorizontalLayout {
             }
         });
 
+        // Configuración del botón principal de ingredientes
         btnAgregarIngrediente.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
         btnAgregarIngrediente.setWidthFull();
         btnAgregarIngrediente.setEnabled(false);
         btnAgregarIngrediente.addClickListener(e -> asociarIngrediente());
+
+        // Configuración del botón Cancelar ingrediente
+        btnCancelarEdicionIngrediente.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
+        btnCancelarEdicionIngrediente.setWidthFull();
+        btnCancelarEdicionIngrediente.setVisible(false); // Oculto inicialmente
+        btnCancelarEdicionIngrediente.addClickListener(e -> limpiarFormularioIngrediente());
+
+        // Contenedor dinámico de la botonera inferior
+        contenedorBotonesIngrediente.setWidthFull();
+        contenedorBotonesIngrediente.add(btnAgregarIngrediente, btnCancelarEdicionIngrediente);
 
         HorizontalLayout formIngredientes = new HorizontalLayout(cbInsumos, numCantidad);
         formIngredientes.setWidthFull();
         formIngredientes.setAlignItems(Alignment.BASELINE);
 
         // Armamos la columna derecha agregando todo en orden
-        colDerecha.add(tituloNuevoPlato, formNuevoPlato, btnCrearPlato,
-                new com.vaadin.flow.component.html.Hr(), // Línea divisoria visual
-                tituloReceta, gridIngredientes, emptyStateReceta, formIngredientes, btnAgregarIngrediente);
+        colDerecha.add(tituloNuevoPlato, formNuevoPlato, contenedorBotonesPlato,
+                new com.vaadin.flow.component.html.Hr(),
+                tituloReceta, gridIngredientes, emptyStateReceta, formIngredientes, contenedorBotonesIngrediente);
 
         add(colIzquierda, colDerecha);
 
@@ -203,7 +255,7 @@ public class VistaRecetas extends HorizontalLayout {
     }
 
     /**
-     * Lógica operativa para registrar un plato base en SQLite
+     * Lógica operativa para registrar o editar un plato en SQLite
      */
     private void guardarNuevoPlato() {
         String nombre = txtNombrePlato.getValue();
@@ -214,14 +266,36 @@ public class VistaRecetas extends HorizontalLayout {
             return;
         }
 
-        Plato nuevoPlato = new Plato(0, nombre, precio, 0.0, null);
-        if (recetaService.crearPlato(nuevoPlato)) {
-            Notification.show("¡Plato '" + nombre + "' creado con éxito!", 2000, Notification.Position.BOTTOM_END);
-            txtNombrePlato.clear();
-            numPrecioPlato.clear();
-            actualizarListaPlatos();
+        if (platoSeleccionado == null) {
+            // MODO CREAR
+            Plato nuevoPlato = new Plato(0, nombre, precio, 0.0, null);
+            if (recetaService.crearPlato(nuevoPlato)) {
+                Notification.show("¡Plato '" + nombre + "' creado con éxito!", 2000, Notification.Position.BOTTOM_END);
+                txtNombrePlato.clear();
+                numPrecioPlato.clear();
+                actualizarListaPlatos();
+            } else {
+                Notification.show("Error al guardar el plato en SQLite.", 3000, Notification.Position.MIDDLE);
+            }
         } else {
-            Notification.show("Error al guardar el plato en SQLite.", 3000, Notification.Position.MIDDLE);
+            // MODO EDITAR
+            platoSeleccionado.setNombre(nombre);
+            platoSeleccionado.setPrecioVenta(precio);
+            if (recetaService.modificarPlato(platoSeleccionado)) {
+                Notification.show("¡Plato actualizado con éxito!", 2000, Notification.Position.BOTTOM_END);
+
+                // Resetear estado del formulario
+                platoSeleccionado = null;
+                txtNombrePlato.clear();
+                numPrecioPlato.clear();
+                btnCrearPlato.setText("Registrar Plato");
+                btnCrearPlato.setIcon(VaadinIcon.PLUS.create());
+
+                actualizarListaPlatos();
+                cargarRecetaDePlato(null); // Limpia la receta de la derecha
+            } else {
+                Notification.show("Error al actualizar el plato.", 3000, Notification.Position.MIDDLE);
+            }
         }
     }
 
@@ -232,12 +306,45 @@ public class VistaRecetas extends HorizontalLayout {
             gridIngredientes.setItems(new ArrayList<>());
             updateRecetaContentVisibility(false);
             btnAgregarIngrediente.setEnabled(false);
+
+            // Regresar el formulario al estado Base (Modo Crear)
+            tituloNuevoPlato.setText("1. Crear Nuevo Plato en el Menú");
+            txtNombrePlato.clear();
+            numPrecioPlato.clear();
+
+            btnCrearPlato.setText("Registrar Plato");
+            btnCrearPlato.setIcon(VaadinIcon.PLUS.create());
+
+            // CORRECCIÓN AQUÍ: Volvemos a darle el ancho completo al botón base
+            btnCrearPlato.setWidthFull();
+            btnCrearPlato.removeThemeVariants(ButtonVariant.LUMO_SUCCESS);
+            btnCrearPlato.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+            btnCancelarEdicion.setVisible(false); // Ocultamos el botón de cancelar
+            gridPlatos.deselectAll(); // Quitamos la selección visual del Grid izquierdo
             return;
         }
 
         platoSeleccionado = plato;
         tituloReceta.setText("2. Receta de: " + plato.getNombre());
         btnAgregarIngrediente.setEnabled(true);
+
+        // Cambios dinámicos de UX para Modo Edición
+        tituloNuevoPlato.setText("Editando plato: " + plato.getNombre());
+        txtNombrePlato.setValue(plato.getNombre());
+        numPrecioPlato.setValue(plato.getPrecioVenta());
+
+        btnCrearPlato.setText("Guardar Cambios");
+        btnCrearPlato.setIcon(VaadinIcon.EDIT.create());
+
+        // CORRECCIÓN AQUÍ: Quitamos el ancho completo para que entre el botón Cancelar a su lado
+        btnCrearPlato.setWidth("auto");
+
+        // Manejo limpio de los estilos de Vaadin
+        btnCrearPlato.removeThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        btnCrearPlato.addThemeVariants(ButtonVariant.LUMO_SUCCESS);
+
+        btnCancelarEdicion.setVisible(true); // Hacemos visible el botón para salir de la edición
 
         Map<Insumo, Double> recetaMap = recetaDAO.obtenerIngredientesPorPlato(plato.getId());
         if (recetaMap == null || recetaMap.isEmpty()) {
@@ -261,12 +368,17 @@ public class VistaRecetas extends HorizontalLayout {
             return;
         }
 
+        // Ejecutamos la acción en la base de datos (guardarIngrediente usa ON CONFLICT DO UPDATE, así que sirve para ambos)
         if (recetaService.agregarIngredienteAPlato(platoSeleccionado.getId(), insumo.getId(), cantidad)) {
-            Notification.show("¡Ingrediente añadido!", 2000, Notification.Position.BOTTOM_END);
-            cbInsumos.clear();
-            numCantidad.clear();
+            if (ingredienteSeleccionadoEdicion == null) {
+                Notification.show("¡Ingrediente añadido!", 2000, Notification.Position.BOTTOM_END);
+            } else {
+                Notification.show("¡Ingrediente modificado con éxito!", 2000, Notification.Position.BOTTOM_END);
+            }
+
+            limpiarFormularioIngrediente();
             cargarRecetaDePlato(platoSeleccionado);
-            actualizarListaPlatos();
+            actualizarListaPlatos(); // Recarga costos en el Grid izquierdo
         } else {
             Notification.show("Error al guardar el ingrediente en la receta", 3000, Notification.Position.MIDDLE);
         }
@@ -297,5 +409,44 @@ public class VistaRecetas extends HorizontalLayout {
     private void updateRecetaContentVisibility(boolean showEmptyState) {
         emptyStateReceta.setVisible(showEmptyState);
         gridIngredientes.setVisible(!showEmptyState);
+    }
+
+    /**
+     * Carga el ingrediente seleccionado en el formulario inferior para su edición.
+     */
+    private void cargarIngredienteParaEdicion(Map.Entry<Insumo, Double> entry) {
+        if (entry == null) {
+            limpiarFormularioIngrediente();
+            return;
+        }
+
+        ingredienteSeleccionadoEdicion = entry;
+        cbInsumos.setValue(entry.getKey());
+        cbInsumos.setReadOnly(true); // Bloqueamos el combo para que solo edite la cantidad de ESTE insumo
+        numCantidad.setValue(entry.getValue());
+
+        btnAgregarIngrediente.setText("Modificar Insumo");
+        btnAgregarIngrediente.setIcon(VaadinIcon.EDIT.create());
+        btnAgregarIngrediente.setWidth("auto");
+        btnCancelarEdicionIngrediente.setVisible(true);
+    }
+
+    /**
+     * Limpia el formulario inferior regresándolo a su estado base de inserción.
+     */
+    private void limpiarFormularioIngrediente() {
+        ingredienteSeleccionadoEdicion = null;
+        cbInsumos.setReadOnly(false);
+        cbInsumos.clear();
+        numCantidad.clear();
+
+        btnAgregarIngrediente.setText("Añadir a Receta");
+        btnAgregarIngrediente.setIcon(VaadinIcon.DISC.create());
+        btnAgregarIngrediente.setWidthFull();
+        btnCancelarEdicionIngrediente.setVisible(false);
+        gridIngredientes.deselectAll();
+
+        // Mantener habilitado solo si hay un plato seleccionado
+        btnAgregarIngrediente.setEnabled(platoSeleccionado != null);
     }
 }
