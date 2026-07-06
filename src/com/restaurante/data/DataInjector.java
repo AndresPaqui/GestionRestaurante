@@ -7,8 +7,9 @@ import java.time.format.DateTimeFormatter;
 public class DataInjector {
 
     public static void inyectarDatosDemostrativos() {
-        try (Connection conn = Conexion.conectar();
-             Statement st = conn.createStatement()) {
+        // Sacamos la conexión del try-with-resources para que Java NO la cierre automáticamente
+        Connection conn = Conexion.conectar();
+        try (Statement st = conn.createStatement()) {
 
             System.out.println("[Inyector] Iniciando carga de datos reales...");
 

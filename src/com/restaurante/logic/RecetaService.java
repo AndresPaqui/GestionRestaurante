@@ -82,4 +82,16 @@ public class RecetaService {
         }
         return platos;
     }
+
+    /**
+     * Elimina los ingredientes del plato en la tabla pivote y oculta el plato
+     * del sistema sin borrar su historial financiero.
+     */
+    public boolean eliminarPlatoCompleto(int idPlato) {
+        // 1. Liberamos los insumos (solo elimina la relación en la tabla 'recetas')
+        recetaDAO.eliminarIngredientesDePlato(idPlato);
+
+        // 2. Ocultamos el plato (Soft delete)
+        return platoDAO.eliminar(idPlato);
+    }
 }

@@ -133,7 +133,7 @@ public class VistaRecetas extends HorizontalLayout {
             }
         });
 
-        btnAgregarIngrediente.addThemeVariants(ButtonVariant.LUMO_SUCCESS);
+        btnAgregarIngrediente.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
         btnAgregarIngrediente.setWidthFull();
         btnAgregarIngrediente.setEnabled(false);
         btnAgregarIngrediente.addClickListener(e -> asociarIngrediente());
@@ -169,19 +169,21 @@ public class VistaRecetas extends HorizontalLayout {
 
         ConfirmDialog dialog = new ConfirmDialog();
         dialog.setHeader("Confirmar eliminación");
-        dialog.setText("¿Estás seguro de que deseas eliminar este plato?");
+        dialog.setText("¿Estás seguro de que deseas eliminar '" + plato.getNombre() + "'? Esto no afectará el historial de ventas.");
         dialog.setCancelable(true);
         dialog.setConfirmText("Eliminar");
         dialog.setConfirmButtonTheme("error primary");
         dialog.setCancelText("Cancelar");
 
         dialog.addConfirmListener(event -> {
-            recetaDAO.eliminarIngredientesDePlato(plato.getId());
-            boolean platoEliminado = platoDAO.eliminar(plato.getId());
+            // AQUÍ ESTÁ EL CAMBIO MÁGICO: Llamamos al servicio unificado que hace el soft delete
+            boolean platoEliminado = recetaService.eliminarPlatoCompleto(plato.getId());
 
             if (platoEliminado) {
-                Notification.show("¡Plato eliminado con éxito!", 2500, Notification.Position.BOTTOM_END);
+                Notification.show("¡Plato eliminado con éxito!", 2500, Notification.Position.BOTTOM_END)
+                        .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_SUCCESS);
 
+                // Limpiamos la vista de receta derecha si el plato eliminado estaba seleccionado
                 if (platoSeleccionado != null && platoSeleccionado.getId() == plato.getId()) {
                     platoSeleccionado = null;
                     tituloReceta.setText("2. Seleccione un plato para ver su receta");
@@ -190,9 +192,10 @@ public class VistaRecetas extends HorizontalLayout {
                     btnAgregarIngrediente.setEnabled(false);
                 }
 
+                // Recargamos la lista visual de la izquierda
                 actualizarListaPlatos();
             } else {
-                Notification.show("No se pudo eliminar el plato.", 3000, Notification.Position.MIDDLE);
+                Notification.show("Error interno. No se pudo eliminar el plato.", 3000, Notification.Position.MIDDLE);
             }
         });
 

@@ -58,7 +58,8 @@ public class Conexion {
                 CREATE TABLE IF NOT EXISTS platos (
                     id           INTEGER PRIMARY KEY AUTOINCREMENT,
                     nombre       TEXT    NOT NULL,
-                    precio_venta REAL    NOT NULL DEFAULT 0
+                    precio_venta REAL    NOT NULL DEFAULT 0,
+                    estado       INTEGER NOT NULL DEFAULT 1
                 );""";
 
         String recetas = """
@@ -101,6 +102,11 @@ public class Conexion {
             st.execute(recetas);
             st.execute(ventas);
             st.execute(detalleVentas);
+            // Intenta añadir la columna a bases de datos existentes.
+            // Si la columna ya existe, fallará silenciosamente, lo cual es el comportamiento deseado.
+            try {
+                st.execute("ALTER TABLE platos ADD COLUMN estado INTEGER NOT NULL DEFAULT 1;");
+            } catch (SQLException ignored) {}
             System.out.println("[Conexion] Estructura de tablas verificada/creada.");
 
             try (java.sql.ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM insumos")) {
