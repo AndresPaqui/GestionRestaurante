@@ -41,7 +41,8 @@ public class PlatoDAO {
     }
 
     public boolean eliminar(int id) {
-        String sql = "DELETE FROM platos WHERE id = ?";
+        // En lugar de DELETE, hacemos un UPDATE (Soft Delete)
+        String sql = "UPDATE platos SET estado = 0 WHERE id = ?";
         try (PreparedStatement ps = Conexion.conectar().prepareStatement(sql)) {
             ps.setInt(1, id);
             return ps.executeUpdate() > 0;
@@ -53,7 +54,8 @@ public class PlatoDAO {
 
     public List<Plato> listarTodos() {
         List<Plato> lista = new ArrayList<>();
-        String sql = "SELECT * FROM platos ORDER BY nombre";
+        // Solo traemos los platos que están activos (estado = 1)
+        String sql = "SELECT * FROM platos WHERE estado = 1 ORDER BY nombre";
         try (Statement st = Conexion.conectar().createStatement();
              ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) lista.add(mapear(rs));

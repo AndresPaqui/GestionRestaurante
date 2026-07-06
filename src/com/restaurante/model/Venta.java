@@ -11,6 +11,18 @@ public class Venta {
     private List<ItemVenta> detalles;
     private double totalVenta;
     private String metodoPago;
+    private String clienteNombre;
+    private String clienteCedula;
+
+    public Venta(int idVenta, LocalDateTime fecha, List<ItemVenta> detalles, double totalVenta, String metodoPago, String clienteNombre, String clienteCedula) {
+        this.idVenta = idVenta;
+        this.fecha = fecha;
+        this.detalles = detalles;
+        this.totalVenta = totalVenta;
+        this.metodoPago = metodoPago;
+        this.clienteNombre = clienteNombre;
+        this.clienteCedula = clienteCedula;
+    }
 
     public Venta(int idVenta, LocalDateTime fecha, List<ItemVenta> detalles, double totalVenta, String metodoPago) {
         this.idVenta = idVenta;
@@ -59,4 +71,22 @@ public class Venta {
     public void setMetodoPago(String metodoPago) {
         this.metodoPago = metodoPago;
     }
+
+    public String getClienteNombre() {
+        return clienteNombre;
+    }
+
+    public void setClienteNombre(String clienteNombre) {
+        this.clienteNombre = clienteNombre;
+    }
+
+    public String getClienteCedula() {
+        return clienteCedula;
+    }
+
+    public void setClienteCedula(String clienteCedula) {
+        this.clienteCedula = clienteCedula;
+    }
+
+
 }
